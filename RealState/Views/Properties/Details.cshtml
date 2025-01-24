@@ -8,32 +8,148 @@
 <p><strong>Bidding Starts:</strong> @Model.BiddingStartTime?.ToString("g")</p>
 <p><strong>Bidding Ends:</strong> @Model.BiddingEndTime?.ToString("g")</p>
 
-@if (Model.Bids.Any())
+@if (User.IsInRole("Seller"))
 {
     <h3>Bids</h3>
-    <table class="table">
-    <thead>
-        <tr>
-            <th>Bidder Name</th>
-            <th>Amount</th>
-            <th>Time Placed</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var bid in Model.Bids)
-            {
+    @if (Model.Bids.Any())
+    {
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@bid.BidderName</td>
-                    <td>@bid.Amount</td>
-                    <td>@bid.TimePlaced.ToString("g")</td>
+                    <th>Bidder Name</th>
+                    <th>Amount</th>
+                    <th>Time Placed</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var bid in Model.Bids.OrderByDescending(b => b.Amount))
+                {
+                    <tr>
+                        <td>@bid.BidderName</td>
+                        <td>@bid.Amount</td>
+                        <td>@bid.TimePlaced.ToString("g")</td>
+                        <td>
+                            @if (bid.IsWinningBid)
+                            {
+                                <span class="badge bg-success">Winning Bid</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Active</span>
+                            }
+                        </td>
+                        <td>
+                            @if (bid.BidderId == User.FindFirst("sub")?.Value && bid.IsActive && Model.BiddingEndTime >= DateTime.Now)
+                            {
+                                <form asp-action="UpdateBid" asp-controller="Bids" method="post" class="d-inline">
+                                    <input type="hidden" name="bidId" value="@bid.Id" />
+                                    <div class="form-group d-inline">
+                                        <input type="number" name="newAmount" class="form-control d-inline" style="width: 100px;" placeholder="Update Bid Amount" required />
+                                    </div>
+                                    <button type="submit" class="btn btn-warning btn-sm">Update</button>
+                                </form>
+                                <form asp-action="CancelBid" asp-controller="Bids" method="post" class="d-inline">
+                                    <input type="hidden" name="bidId" value="@bid.Id" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>No bids have been placed for this property yet.</p>
+    }
+}
+else if (User.IsInRole("Buyer"))
+{
+    <h3>Place or Manage Your Bid</h3>
+    @if (Model.BiddingStartTime <= DateTime.Now && Model.BiddingEndTime >= DateTime.Now)
+    {
+        var userBid = Model.Bids.FirstOrDefault(b => b.BidderId == User.FindFirst("sub")?.Value && b.IsActive);
+
+        if (userBid == null)
+        {
+            <form asp-action="PlaceBid" asp-controller="Bids" method="post">
+                <input type="hidden" name="propertyId" value="@Model.Id" />
+                <div class="form-group">
+                    <label for="amount">Bid Amount</label>
+                    <input type="number" name="amount" id="amount" class="form-control" placeholder="Enter your bid amount" required />
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Place Bid</button>
+            </form>
+        }
+        else
+        {
+            <form asp-action="UpdateBid" asp-controller="Bids" method="post" class="d-inline">
+                <input type="hidden" name="bidId" value="@userBid.Id" />
+                <div class="form-group d-inline">
+                    <input type="number" name="newAmount" class="form-control d-inline" style="width: 150px;" placeholder="Update Bid Amount" required />
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm">Update Bid</button>
+            </form>
+            <form asp-action="CancelBid" asp-controller="Bids" method="post" class="d-inline">
+                <input type="hidden" name="bidId" value="@userBid.Id" />
+                <button type="submit" class="btn btn-danger btn-sm">Cancel Bid</button>
+            </form>
+        }
+    }
+    else if (Model.BiddingEndTime < DateTime.Now)
+    {
+        <p class="text-danger">Bidding is closed for this property.</p>
+    }
+    else
+    {
+        <p class="text-warning">Bidding has not started yet.</p>
+    }
+
+    <h3>All Bids</h3>
+    @if (Model.Bids.Any())
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Bidder Name</th>
+                    <th>Amount</th>
+                    <th>Time Placed</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var bid in Model.Bids.OrderByDescending(b => b.Amount))
+                {
+                    <tr>
+                        <td>@bid.BidderName</td>
+                        <td>@bid.Amount</td>
+                        <td>@bid.TimePlaced.ToString("g")</td>
+                        <td>
+                            @if (bid.IsWinningBid)
+                            {
+                                <span class="badge bg-success">Winning Bid</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Active</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>No bids have been placed for this property yet.</p>
+    }
 }
 else
 {
-    <p>No bids have been placed yet.</p>
+    <p class="text-warning">You must be logged in as a buyer or seller to interact with this property.</p>
 }
 
-<a asp-action="Index" class="btn btn-secondary">Back to List</a>
+<a asp-action="Index" asp-controller="Properties" class="btn btn-secondary mt-3">Back to Properties</a>

@@ -1,0 +1,49 @@
+@model RealState.Models.Property
+
+<h1>Bids for Property: @Model.Name</h1>
+
+<p><strong>Address:</strong> @Model.Address</p>
+<p><strong>Price:</strong> @Model.Price</p>
+<p><strong>Bidding Starts:</strong> @Model.BiddingStartTime?.ToString("g")</p>
+<p><strong>Bidding Ends:</strong> @Model.BiddingEndTime?.ToString("g")</p>
+
+<h3>All Bids</h3>
+@if (Model.Bids.Any())
+{
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Bidder Name</th>
+                    <th>Amount</th>
+                    <th>Time Placed</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var bid in Model.Bids.OrderByDescending(b => b.Amount))
+            {
+                        <tr>
+                            <td>@bid.BidderName</td>
+                            <td>@bid.Amount</td>
+                            <td>@bid.TimePlaced.ToString("g")</td>
+                            <td>
+                        @if (bid.IsWinningBid)
+                        {
+                                        <span class="badge bg-success">Winning Bid</span>
+                        }
+                        else
+                        {
+                                        <span class="badge bg-secondary">Active</span>
+                        }
+                            </td>
+                        </tr>
+            }
+            </tbody>
+        </table>
+}
+else
+{
+        <p>No bids have been placed for this property.</p>
+}
+
+<a asp-action="Index" class="btn btn-secondary mt-3">Back to Properties</a>
