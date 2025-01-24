@@ -1,9 +1,16 @@
 @model IEnumerable<RealState.Models.Property>
 
-<h1>Properties</h1>
+<h1>Your Properties</h1>
+
 <a asp-action="Create" class="btn btn-primary mb-3">Add New Property</a>
 
-<table class="table">
+@if (!Model.Any())
+{
+    <p>You don't have any properties listed.</p>
+}
+else
+{
+    <table class="table">
     <thead>
         <tr>
             <th>Name</th>
@@ -16,22 +23,20 @@
     </thead>
     <tbody>
         @foreach (var property in Model)
-        {
-            <tr>
-                <td>@property.Name</td>
-                <td>@property.Address</td>
-                <td>@property.Price</td>
-                <td>@property.BiddingStartTime?.ToString("g")</td>
-                <td>@property.BiddingEndTime?.ToString("g")</td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@property.Id" class="btn btn-info btn-sm">Details</a>
-                    <a asp-action="Edit" asp-route-id="@property.Id" class="btn btn-warning btn-sm">Edit</a>
-                    <form asp-action="Delete" asp-route-id="@property.Id" method="post" style="display:inline;">
-                        <button type="submit" class="btn btn-danger btn-sm"
-                            onclick="return confirm('Are you sure?');">Delete</button>
-                    </form>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+            {
+                <tr>
+                    <td>@property.Name</td>
+                    <td>@property.Address</td>
+                    <td>@property.Price</td>
+                    <td>@property.BiddingStartTime?.ToString("g")</td>
+                    <td>@property.BiddingEndTime?.ToString("g")</td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@property.Id" class="btn btn-info btn-sm">Details</a>
+                        <a asp-action="Edit" asp-route-id="@property.Id" class="btn btn-warning btn-sm">Edit</a>
+                        <a asp-action="Delete" asp-route-id="@property.Id" class="btn btn-danger btn-sm">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
