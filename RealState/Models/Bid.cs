@@ -12,5 +12,7 @@ namespace RealState.Models
         public string BidderName { get; set; } // Name of the bidder
         public decimal Amount { get; set; } // Bid amount
         public DateTime TimePlaced { get; set; } // Time the bid was placed
+
+        public bool IsActive { get; set; } = true; // Bid status (default: active)
     }
 }

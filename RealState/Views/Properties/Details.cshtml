@@ -8,4 +8,83 @@
 <p><strong>Bidding Starts:</strong> @Model.BiddingStartTime?.ToString("g")</p>
 <p><strong>Bidding Ends:</strong> @Model.BiddingEndTime?.ToString("g")</p>
 
-<a asp-action="Index" class="btn btn-secondary">Back to List</a>
+<hr />
+
+<h3>Bids</h3>
+
+<!-- Show all bids -->
+@if (Model.Bids.Any())
+{
+    <table class="table">
+    <thead>
+        <tr>
+            <th>Bidder Name</th>
+            <th>Amount</th>
+            <th>Time Placed</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var bid in Model.Bids.Where(b => b.IsActive))
+            {
+                <tr>
+                    <td>@bid.BidderName</td>
+                    <td>@bid.Amount</td>
+                    <td>@bid.TimePlaced.ToString("g")</td>
+                    <td>
+                        <!-- Edit Bid Form -->
+                        <form asp-action="UpdateBid" method="post" class="d-inline">
+                            <input type="hidden" name="bidId" value="@bid.Id" />
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="newAmount" class="form-control" placeholder="New Amount" required />
+                                <button type="submit" class="btn btn-warning btn-sm">Update</button>
+                            </div>
+                        </form>
+
+                        <!-- Cancel Bid Form -->
+                        <form asp-action="CancelBid" method="post" class="d-inline">
+                            <input type="hidden" name="bidId" value="@bid.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="return confirm('Are you sure you want to cancel this bid?');">Cancel</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No bids have been placed yet.</p>
+}
+
+<hr />
+
+<!-- Place Bid Form -->
+@if (Model.BiddingStartTime <= DateTime.Now && Model.BiddingEndTime >= DateTime.Now)
+{
+    <h3>Place a Bid</h3>
+    <form asp-action="PlaceBid" method="post" class="mt-3">
+    <input type="hidden" name="propertyId" value="@Model.Id" />
+
+    <div class="form-group">
+        <label for="bidderName">Your Name</label>
+        <input type="text" name="bidderName" id="bidderName" class="form-control" placeholder="Enter your name"
+            required />
+    </div>
+
+    <div class="form-group">
+        <label for="amount">Bid Amount</label>
+        <input type="number" name="amount" id="amount" class="form-control" placeholder="Enter your bid amount"
+            required />
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Place Bid</button>
+</form>
+}
+else
+{
+    <p class="text-danger mt-3">Bidding is currently closed for this property.</p>
+}
+
+<a asp-action="Index" class="btn btn-secondary mt-3">Back to List</a>

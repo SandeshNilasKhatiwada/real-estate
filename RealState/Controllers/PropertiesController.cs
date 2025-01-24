@@ -31,7 +31,10 @@ namespace RealState.Controllers
                 return NotFound();
             }
 
-            var property = _context.Properties.FirstOrDefault(p => p.Id == id);
+            var property = _context.Properties
+                .Include(p => p.Bids) // Include related bids
+                .FirstOrDefault(p => p.Id == id);
+
             if (property == null)
             {
                 return NotFound();
@@ -39,6 +42,7 @@ namespace RealState.Controllers
 
             return View(property);
         }
+
 
         // Show create form
         public IActionResult Create()
@@ -179,5 +183,89 @@ namespace RealState.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult PlaceBid(int propertyId, string bidderName, decimal amount)
+        {
+            var property = _context.Properties.FirstOrDefault(p => p.Id == propertyId);
+            if (property == null)
+            {
+                return NotFound();
+            }
+
+            // Validate bidding time
+            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
+            {
+                TempData["Error"] = "Bidding is not open for this property.";
+                return RedirectToAction("Details", new { id = propertyId });
+            }
+
+            // Save the bid
+            var bid = new Bid
+            {
+                PropertyId = propertyId,
+                BidderName = bidderName,
+                Amount = amount,
+                TimePlaced = DateTime.Now
+            };
+
+            _context.Bids.Add(bid);
+            _context.SaveChanges();
+
+            return RedirectToAction("Details", new { id = propertyId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult UpdateBid(int bidId, decimal newAmount)
+        {
+            var bid = _context.Bids.Include(b => b.Property).FirstOrDefault(b => b.Id == bidId);
+            if (bid == null || !bid.IsActive)
+            {
+                return NotFound();
+            }
+
+            var property = bid.Property;
+
+            // Validate bidding time
+            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
+            {
+                TempData["Error"] = "Bidding is closed for this property.";
+                return RedirectToAction("Details", new { id = property.Id });
+            }
+
+            // Update the bid
+            bid.Amount = newAmount;
+            bid.TimePlaced = DateTime.Now;
+            _context.SaveChanges();
+
+            return RedirectToAction("Details", new { id = property.Id });
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CancelBid(int bidId)
+        {
+            var bid = _context.Bids.Include(b => b.Property).FirstOrDefault(b => b.Id == bidId);
+            if (bid == null || !bid.IsActive)
+            {
+                return NotFound();
+            }
+
+            var property = bid.Property;
+
+            // Validate bidding time
+            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
+            {
+                TempData["Error"] = "Bidding is closed for this property.";
+                return RedirectToAction("Details", new { id = property.Id });
+            }
+
+            // Cancel the bid
+            bid.IsActive = false;
+            _context.SaveChanges();
+
+            return RedirectToAction("Details", new { id = property.Id });
+        }
+
     }
 }
