@@ -1,271 +1,273 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RealState.Data;
 using RealState.Models;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace RealState.Controllers
 {
+    [Authorize]
     public class PropertiesController : Controller
     {
         private readonly RealStateContext _context;
+        private readonly UserManager<IdentityUser> _userManager;
 
-        public PropertiesController(RealStateContext context)
+        public PropertiesController(RealStateContext context, UserManager<IdentityUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // List all properties
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var properties = _context.Properties.ToList();
-            return View(properties);
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+
+                // Show only properties created by the current seller
+                var properties = await _context.Properties
+                    .Where(p => p.CreatedBy == user.Id)
+                    .ToListAsync();
+
+                return View(properties);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Index action: {ex.Message}");
+                return View("Error");
+            }
         }
 
         // Show details of a property
-        public IActionResult Details(int? id)
+        public async Task<IActionResult> Details(int? id)
         {
-            if (id == null || id <= 0)
+            try
             {
-                return NotFound();
+                if (id == null || id <= 0)
+                {
+                    return NotFound();
+                }
+
+                var property = await _context.Properties
+                    .Include(p => p.Bids) // Include related bids
+                    .FirstOrDefaultAsync(p => p.Id == id);
+
+                if (property == null)
+                {
+                    return NotFound();
+                }
+
+                return View(property);
             }
-
-            var property = _context.Properties
-                .Include(p => p.Bids) // Include related bids
-                .FirstOrDefault(p => p.Id == id);
-
-            if (property == null)
+            catch (Exception ex)
             {
-                return NotFound();
+                Console.WriteLine($"Error in Details action: {ex.Message}");
+                return View("Error");
             }
-
-            return View(property);
         }
-
 
         // Show create form
+        [Authorize(Roles = "Seller")]
         public IActionResult Create()
         {
-            // Pass an initialized Property object to the view
-            var property = new Property();
-            return View(property);
+            return View(new Property());
         }
 
+        // Handle create form submission
         [HttpPost]
+        [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Property property)
+        public async Task<IActionResult> Create(Property property)
         {
-            if (!ModelState.IsValid)
+            try
             {
+                var user = await _userManager.GetUserAsync(User);
+                Console.WriteLine($"Logged-in User ID: {user.Id}");
+
+                // Set the CreatedBy field manually
+                property.CreatedBy = user.Id;
+
+                // Remove CreatedBy from ModelState to prevent validation issues
+                ModelState.Remove(nameof(Property.CreatedBy));
+
+                if (ModelState.IsValid)
+                {
+                    _context.Properties.Add(property);
+                    await _context.SaveChangesAsync();
+
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Log ModelState errors
                 foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
                 {
                     Console.WriteLine($"ModelState Error: {error.ErrorMessage}");
                 }
+
+                return View(property);
             }
-            if (ModelState.IsValid)
+            catch (Exception ex)
             {
-                if (property.BiddingStartTime == null || property.BiddingEndTime == null)
-                {
-                    ModelState.AddModelError("", "Bidding start and end times are required.");
-                    return View(property);
-                }
-
-                if (property.BiddingEndTime <= property.BiddingStartTime)
-                {
-                    ModelState.AddModelError("", "Bidding end time must be after the start time.");
-                    return View(property);
-                }
-
-                try
-                {
-                    _context.Properties.Add(property);
-                    _context.SaveChanges();
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error creating property: {ex.Message}");
-                    ViewBag.ErrorMessage = "An error occurred while creating the property.";
-                    return View("Error");
-                }
+                Console.WriteLine($"Error in Create action: {ex.Message}");
+                return View("Error");
             }
-
-            return View(property);
         }
 
         // Show edit form
-        public IActionResult Edit(int? id)
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null || id <= 0)
+            try
             {
-                return NotFound();
-            }
+                if (id == null || id <= 0)
+                {
+                    return NotFound();
+                }
 
-            var property = _context.Properties.Find(id);
-            if (property == null)
+                var user = await _userManager.GetUserAsync(User);
+
+                var property = await _context.Properties
+                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+                if (property == null)
+                {
+                    TempData["Error"] = "You can only edit properties you own.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                return View(property);
+            }
+            catch (Exception ex)
             {
-                return NotFound();
+                Console.WriteLine($"Error in Edit action: {ex.Message}");
+                return View("Error");
             }
-
-            return View(property);
         }
 
         // Handle edit form submission
         [HttpPost]
+        [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, Property property)
+        public async Task<IActionResult> Edit(int id, Property property)
         {
-            if (id != property.Id)
+            try
             {
-                return NotFound();
-            }
+                var user = await _userManager.GetUserAsync(User);
 
-            if (ModelState.IsValid)
-            {
-                if (property.BiddingStartTime == null || property.BiddingEndTime == null)
+                if (id != property.Id)
                 {
-                    ModelState.AddModelError("", "Bidding start and end times are required.");
-                    return View(property);
+                    return NotFound();
                 }
 
-                if (property.BiddingEndTime <= property.BiddingStartTime)
-                {
-                    ModelState.AddModelError("", "Bidding end time must be after the start time.");
-                    return View(property);
-                }
+                // Get the existing property to update only editable fields
+                var existingProperty = await _context.Properties
+                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
 
-                try
+                if (existingProperty == null)
                 {
-                    _context.Update(property);
-                    _context.SaveChanges();
+                    TempData["Error"] = "You can only edit properties you own.";
                     return RedirectToAction(nameof(Index));
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error editing property: {ex.Message}");
-                    ViewBag.ErrorMessage = "An error occurred while editing the property.";
-                    return View("Error");
-                }
-            }
 
-            return View(property);
+                // Remove CreatedBy from ModelState to prevent validation issues
+                ModelState.Remove(nameof(Property.CreatedBy));
+
+                if (ModelState.IsValid)
+                {
+                    // Update editable fields only
+                    existingProperty.Name = property.Name;
+                    existingProperty.Address = property.Address;
+                    existingProperty.Price = property.Price;
+                    existingProperty.VideoUrl = property.VideoUrl;
+                    existingProperty.BiddingStartTime = property.BiddingStartTime;
+                    existingProperty.BiddingEndTime = property.BiddingEndTime;
+
+                    _context.Update(existingProperty);
+                    await _context.SaveChangesAsync();
+
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Log ModelState errors
+                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    Console.WriteLine($"ModelState Error: {error.ErrorMessage}");
+                }
+
+                return View(property);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Edit action: {ex.Message}");
+                return View("Error");
+            }
         }
 
         // Show delete confirmation
-        public IActionResult Delete(int? id)
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null || id <= 0)
+            try
             {
-                return NotFound();
-            }
+                if (id == null || id <= 0)
+                {
+                    return NotFound();
+                }
 
-            var property = _context.Properties.FirstOrDefault(p => p.Id == id);
-            if (property == null)
+                var user = await _userManager.GetUserAsync(User);
+
+                var property = await _context.Properties
+                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+                if (property == null)
+                {
+                    TempData["Error"] = "You can only delete properties you own.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                return View(property);
+            }
+            catch (Exception ex)
             {
-                return NotFound();
+                Console.WriteLine($"Error in Delete action: {ex.Message}");
+                return View("Error");
             }
-
-            return View(property);
         }
 
         // Handle delete confirmation
         [HttpPost, ActionName("Delete")]
+        [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var property = _context.Properties.Find(id);
-            if (property != null)
+            try
             {
+                var user = await _userManager.GetUserAsync(User);
+
+                var property = await _context.Properties
+                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+                if (property == null)
+                {
+                    TempData["Error"] = "You can only delete properties you own.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 _context.Properties.Remove(property);
-                _context.SaveChanges();
-            }
+                await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in DeleteConfirmed action: {ex.Message}");
+                return View("Error");
+            }
         }
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult PlaceBid(int propertyId, string bidderName, decimal amount)
-        {
-            var property = _context.Properties.FirstOrDefault(p => p.Id == propertyId);
-            if (property == null)
-            {
-                return NotFound();
-            }
-
-            // Validate bidding time
-            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
-            {
-                TempData["Error"] = "Bidding is not open for this property.";
-                return RedirectToAction("Details", new { id = propertyId });
-            }
-
-            // Save the bid
-            var bid = new Bid
-            {
-                PropertyId = propertyId,
-                BidderName = bidderName,
-                Amount = amount,
-                TimePlaced = DateTime.Now
-            };
-
-            _context.Bids.Add(bid);
-            _context.SaveChanges();
-
-            return RedirectToAction("Details", new { id = propertyId });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult UpdateBid(int bidId, decimal newAmount)
-        {
-            var bid = _context.Bids.Include(b => b.Property).FirstOrDefault(b => b.Id == bidId);
-            if (bid == null || !bid.IsActive)
-            {
-                return NotFound();
-            }
-
-            var property = bid.Property;
-
-            // Validate bidding time
-            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
-            {
-                TempData["Error"] = "Bidding is closed for this property.";
-                return RedirectToAction("Details", new { id = property.Id });
-            }
-
-            // Update the bid
-            bid.Amount = newAmount;
-            bid.TimePlaced = DateTime.Now;
-            _context.SaveChanges();
-
-            return RedirectToAction("Details", new { id = property.Id });
-        }
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult CancelBid(int bidId)
-        {
-            var bid = _context.Bids.Include(b => b.Property).FirstOrDefault(b => b.Id == bidId);
-            if (bid == null || !bid.IsActive)
-            {
-                return NotFound();
-            }
-
-            var property = bid.Property;
-
-            // Validate bidding time
-            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
-            {
-                TempData["Error"] = "Bidding is closed for this property.";
-                return RedirectToAction("Details", new { id = property.Id });
-            }
-
-            // Cancel the bid
-            bid.IsActive = false;
-            _context.SaveChanges();
-
-            return RedirectToAction("Details", new { id = property.Id });
-        }
-
     }
 }
