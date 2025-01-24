@@ -1,0 +1,29 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="container mt-5">
+    <h1 class="text-danger">Oops! Something went wrong.</h1>
+    <h4>An unexpected error occurred while processing your request.</h4>
+
+    @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
+    {
+        <p class="text-warning">
+            <strong>Error Details:</strong> @ViewBag.ErrorMessage
+        </p>
+    }
+
+    @if (Model != null && Model.ShowRequestId)
+    {
+        <p class="mt-3">
+            <strong>Request ID:</strong> <code>@Model.RequestId</code>
+        </p>
+    }
+
+    <p class="mt-3">
+        If the problem persists, please contact support or try again later.
+    </p>
+
+    <a asp-action="Index" asp-controller="Home" class="btn btn-primary mt-3">Go Back to Home</a>
+</div>

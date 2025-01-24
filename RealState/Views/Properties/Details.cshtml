@@ -1,0 +1,11 @@
+@model RealState.Models.Property
+
+<h1>Property Details</h1>
+<p><strong>Name:</strong> @Model.Name</p>
+<p><strong>Address:</strong> @Model.Address</p>
+<p><strong>Price:</strong> @Model.Price</p>
+<p><strong>Video URL:</strong> <a href="@Model.VideoUrl" target="_blank">@Model.VideoUrl</a></p>
+<p><strong>Bidding Starts:</strong> @Model.BiddingStartTime?.ToString("g")</p>
+<p><strong>Bidding Ends:</strong> @Model.BiddingEndTime?.ToString("g")</p>
+
+<a asp-action="Index" class="btn btn-secondary">Back to List</a>
