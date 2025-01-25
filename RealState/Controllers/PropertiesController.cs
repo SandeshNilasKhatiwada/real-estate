@@ -22,252 +22,209 @@ namespace RealState.Controllers
             _userManager = userManager;
         }
 
-        // List all properties
+        // List properties based on roles
         public async Task<IActionResult> Index()
         {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
+            var user = await _userManager.GetUserAsync(User);
 
+            if (User.IsInRole("Seller"))
+            {
                 // Show only properties created by the current seller
-                var properties = await _context.Properties
+                var sellerProperties = await _context.Properties
                     .Where(p => p.CreatedBy == user.Id)
                     .ToListAsync();
-
-                return View(properties);
+                return View(sellerProperties);
             }
-            catch (Exception ex)
+            else if (User.IsInRole("Buyer"))
             {
-                Console.WriteLine($"Error in Index action: {ex.Message}");
-                return View("Error");
+                // Show all properties for buyers
+                var allProperties = await _context.Properties
+                    .Include(p => p.Bids)
+                    .ToListAsync();
+                return View(allProperties);
             }
+
+            TempData["Error"] = "You do not have the required role to access this page.";
+            return RedirectToAction("AccessDenied", "Account");
         }
 
-        // Show details of a property
+        // Show property details
         public async Task<IActionResult> Details(int? id)
         {
-            try
+            if (id == null || id <= 0)
             {
-                if (id == null || id <= 0)
-                {
-                    return NotFound();
-                }
-
-                var property = await _context.Properties
-                    .Include(p => p.Bids) // Include related bids
-                    .FirstOrDefaultAsync(p => p.Id == id);
-
-                if (property == null)
-                {
-                    return NotFound();
-                }
-
-                return View(property);
+                return NotFound();
             }
-            catch (Exception ex)
+
+            var property = await _context.Properties
+                .Include(p => p.Bids) // Include related bids
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (property == null)
             {
-                Console.WriteLine($"Error in Details action: {ex.Message}");
-                return View("Error");
+                return NotFound();
             }
+
+            return View(property);
         }
 
-        // Show create form
+        // Create property (Only sellers)
         [Authorize(Roles = "Seller")]
         public IActionResult Create()
         {
             return View(new Property());
         }
 
-        // Handle create form submission
         [HttpPost]
         [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Property property)
         {
-            try
+            var user = await _userManager.GetUserAsync(User);
+            property.CreatedBy = user.Id;
+
+            ModelState.Remove(nameof(Property.CreatedBy));
+
+            if (ModelState.IsValid)
             {
-                var user = await _userManager.GetUserAsync(User);
-                Console.WriteLine($"Logged-in User ID: {user.Id}");
-
-                // Set the CreatedBy field manually
-                property.CreatedBy = user.Id;
-
-                // Remove CreatedBy from ModelState to prevent validation issues
-                ModelState.Remove(nameof(Property.CreatedBy));
-
-                if (ModelState.IsValid)
-                {
-                    _context.Properties.Add(property);
-                    await _context.SaveChangesAsync();
-
-                    return RedirectToAction(nameof(Index));
-                }
-
-                // Log ModelState errors
-                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
-                {
-                    Console.WriteLine($"ModelState Error: {error.ErrorMessage}");
-                }
-
-                return View(property);
+                _context.Properties.Add(property);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in Create action: {ex.Message}");
-                return View("Error");
-            }
+
+            return View(property);
         }
 
-        // Show edit form
+        // Edit property (Only sellers)
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Edit(int? id)
         {
-            try
+            if (id == null || id <= 0)
             {
-                if (id == null || id <= 0)
-                {
-                    return NotFound();
-                }
-
-                var user = await _userManager.GetUserAsync(User);
-
-                var property = await _context.Properties
-                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
-
-                if (property == null)
-                {
-                    TempData["Error"] = "You can only edit properties you own.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                return View(property);
+                return NotFound();
             }
-            catch (Exception ex)
+
+            var user = await _userManager.GetUserAsync(User);
+            var property = await _context.Properties
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+            if (property == null)
             {
-                Console.WriteLine($"Error in Edit action: {ex.Message}");
-                return View("Error");
+                TempData["Error"] = "You can only edit properties you own.";
+                return RedirectToAction(nameof(Index));
             }
+
+            return View(property);
         }
 
-        // Handle edit form submission
         [HttpPost]
         [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Property property)
         {
-            try
+            var user = await _userManager.GetUserAsync(User);
+
+            if (id != property.Id)
             {
-                var user = await _userManager.GetUserAsync(User);
-
-                if (id != property.Id)
-                {
-                    return NotFound();
-                }
-
-                // Get the existing property to update only editable fields
-                var existingProperty = await _context.Properties
-                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
-
-                if (existingProperty == null)
-                {
-                    TempData["Error"] = "You can only edit properties you own.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                // Remove CreatedBy from ModelState to prevent validation issues
-                ModelState.Remove(nameof(Property.CreatedBy));
-
-                if (ModelState.IsValid)
-                {
-                    // Update editable fields only
-                    existingProperty.Name = property.Name;
-                    existingProperty.Address = property.Address;
-                    existingProperty.Price = property.Price;
-                    existingProperty.VideoUrl = property.VideoUrl;
-                    existingProperty.BiddingStartTime = property.BiddingStartTime;
-                    existingProperty.BiddingEndTime = property.BiddingEndTime;
-
-                    _context.Update(existingProperty);
-                    await _context.SaveChangesAsync();
-
-                    return RedirectToAction(nameof(Index));
-                }
-
-                // Log ModelState errors
-                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
-                {
-                    Console.WriteLine($"ModelState Error: {error.ErrorMessage}");
-                }
-
-                return View(property);
+                return NotFound();
             }
-            catch (Exception ex)
+
+            var existingProperty = await _context.Properties
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+            if (existingProperty == null)
             {
-                Console.WriteLine($"Error in Edit action: {ex.Message}");
-                return View("Error");
+                TempData["Error"] = "You can only edit properties you own.";
+                return RedirectToAction(nameof(Index));
             }
+
+            ModelState.Remove(nameof(Property.CreatedBy));
+
+            if (ModelState.IsValid)
+            {
+                existingProperty.Name = property.Name;
+                existingProperty.Address = property.Address;
+                existingProperty.Price = property.Price;
+                existingProperty.VideoUrl = property.VideoUrl;
+                existingProperty.BiddingStartTime = property.BiddingStartTime;
+                existingProperty.BiddingEndTime = property.BiddingEndTime;
+
+                _context.Update(existingProperty);
+                await _context.SaveChangesAsync();
+
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(property);
         }
 
-        // Show delete confirmation
+        // Delete property (Only sellers)
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Delete(int? id)
         {
-            try
+            if (id == null || id <= 0)
             {
-                if (id == null || id <= 0)
-                {
-                    return NotFound();
-                }
-
-                var user = await _userManager.GetUserAsync(User);
-
-                var property = await _context.Properties
-                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
-
-                if (property == null)
-                {
-                    TempData["Error"] = "You can only delete properties you own.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                return View(property);
+                return NotFound();
             }
-            catch (Exception ex)
+
+            var user = await _userManager.GetUserAsync(User);
+            var property = await _context.Properties
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+            if (property == null)
             {
-                Console.WriteLine($"Error in Delete action: {ex.Message}");
-                return View("Error");
+                TempData["Error"] = "You can only delete properties you own.";
+                return RedirectToAction(nameof(Index));
             }
+
+            return View(property);
         }
 
-        // Handle delete confirmation
         [HttpPost, ActionName("Delete")]
         [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            try
+            var user = await _userManager.GetUserAsync(User);
+
+            var property = await _context.Properties
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
+
+            if (property == null)
             {
-                var user = await _userManager.GetUserAsync(User);
-
-                var property = await _context.Properties
-                    .FirstOrDefaultAsync(p => p.Id == id && p.CreatedBy == user.Id);
-
-                if (property == null)
-                {
-                    TempData["Error"] = "You can only delete properties you own.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                _context.Properties.Remove(property);
-                await _context.SaveChangesAsync();
-
+                TempData["Error"] = "You can only delete properties you own.";
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
+
+            _context.Properties.Remove(property);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // View bids for a specific property (Only sellers)
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> ViewBids(int? propertyId)
+        {
+            if (propertyId == null || propertyId <= 0)
             {
-                Console.WriteLine($"Error in DeleteConfirmed action: {ex.Message}");
-                return View("Error");
+                return NotFound();
             }
+
+            var user = await _userManager.GetUserAsync(User);
+
+            // Ensure the property belongs to the current seller
+            var property = await _context.Properties
+                .Include(p => p.Bids) // Include related bids
+                .FirstOrDefaultAsync(p => p.Id == propertyId && p.CreatedBy == user.Id);
+
+            if (property == null)
+            {
+                TempData["Error"] = "You can only view bids for your own properties.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(property); // Pass property and its bids to the view
         }
     }
 }

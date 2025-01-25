@@ -12,8 +12,8 @@ using RealState.Data;
 namespace RealState.Migrations
 {
     [DbContext(typeof(RealStateContext))]
-    [Migration("20250124122638_AddIdentity")]
-    partial class AddIdentity
+    [Migration("20250124183950_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -232,11 +232,18 @@ namespace RealState.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<string>("BidderId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("BidderName")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsWinningBid")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("PropertyId")
@@ -269,6 +276,10 @@ namespace RealState.Migrations
 
                     b.Property<DateTime?>("BiddingStartTime")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Name")
                         .IsRequired()

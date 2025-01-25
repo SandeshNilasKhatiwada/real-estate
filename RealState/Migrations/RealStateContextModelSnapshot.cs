@@ -229,11 +229,18 @@ namespace RealState.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<string>("BidderId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("BidderName")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsWinningBid")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("PropertyId")

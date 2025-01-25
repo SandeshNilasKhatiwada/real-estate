@@ -1,8 +1,72 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
-}
+﻿@model IEnumerable<RealState.Models.Property>
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container mt-5">
+    <!-- Carousel Section -->
+    <div id="homepageCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
+        <div class="carousel-inner">
+            <!-- Carousel Items -->
+            <div class="carousel-item active">
+                <img src="/images/property1.jpeg" class="d-block w-100" alt="Welcome">
+            </div>
+            <div class="carousel-item">
+                <img src="/images/property2.jpeg" class="d-block w-100" alt="Dream Home">
+            </div>
+            <div class="carousel-item">
+                <img src="/images/property3.jpeg" class="d-block w-100" alt="Best Properties">
+            </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#homepageCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#homepageCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+    <!-- Property Cards Section -->
+    <h1 class="text-center mb-5">Properties</h1>
+    <div class="row">
+        @foreach (var property in Model)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <!-- Embedded YouTube Video -->
+                    @if (!string.IsNullOrEmpty(property.VideoUrl))
+                    {
+                        <iframe width="100%" height="200" src="@property.VideoUrl" title="Property Video" frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen>
+                        </iframe>
+                    }
+
+                    <div class="card-body text-center">
+                        <h5 class="card-title">@property.Name</h5>
+                        <p class="card-text">@property.Address</p>
+                        <p><strong>Price:</strong> $@property.Price</p>
+
+                        @if (User.Identity.IsAuthenticated)
+                        {
+                            <!-- Redirect to details page to bid -->
+                            <a asp-action="Details" asp-controller="Properties" asp-route-id="@property.Id"
+                                class="btn btn-primary">
+                                Bid Now
+                            </a>
+                        }
+                        else
+                        {
+                            <!-- Redirect to login page -->
+                            <a asp-action="Login" asp-controller="Account" class="btn btn-primary">Login to Bid</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 </div>
+
+@section Scripts {
+    <!-- Bootstrap Carousel JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+}

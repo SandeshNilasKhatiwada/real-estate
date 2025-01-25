@@ -1,16 +1,17 @@
 @model IEnumerable<RealState.Models.Property>
 
-<h1>Your Properties</h1>
+<h1>Properties</h1>
 
-<a asp-action="Create" class="btn btn-primary mb-3">Add New Property</a>
-
-@if (!Model.Any())
+@if (User.IsInRole("Seller"))
 {
-    <p>You don't have any properties listed.</p>
-}
-else
-{
-    <table class="table">
+    <a asp-action="Create" class="btn btn-primary mb-3">Add New Property</a>
+    @if (!Model.Any())
+    {
+        <p>You don't have any properties listed.</p>
+    }
+    else
+    {
+        <table class="table">
     <thead>
         <tr>
             <th>Name</th>
@@ -23,20 +24,79 @@ else
     </thead>
     <tbody>
         @foreach (var property in Model)
-            {
-                <tr>
-                    <td>@property.Name</td>
-                    <td>@property.Address</td>
-                    <td>@property.Price</td>
-                    <td>@property.BiddingStartTime?.ToString("g")</td>
-                    <td>@property.BiddingEndTime?.ToString("g")</td>
-                    <td>
-                        <a asp-action="Details" asp-route-id="@property.Id" class="btn btn-info btn-sm">Details</a>
-                        <a asp-action="Edit" asp-route-id="@property.Id" class="btn btn-warning btn-sm">Edit</a>
-                        <a asp-action="Delete" asp-route-id="@property.Id" class="btn btn-danger btn-sm">Delete</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                {
+                    <tr>
+                        <td>@property.Name</td>
+                        <td>@property.Address</td>
+                        <td>@property.Price</td>
+                        <td>@property.BiddingStartTime?.ToString("g")</td>
+                        <td>@property.BiddingEndTime?.ToString("g")</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@property.Id" class="btn btn-info btn-sm">Details</a>
+                            <a asp-action="Edit" asp-route-id="@property.Id" class="btn btn-warning btn-sm">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@property.Id" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+else if (User.IsInRole("Buyer"))
+{
+    @if (!Model.Any())
+    {
+        <p>No properties available for bidding.</p>
+    }
+    else
+    {
+        <table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Address</th>
+            <th>Price</th>
+            <th>Bidding Start</th>
+            <th>Bidding End</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var property in Model)
+                {
+                    <tr>
+                        <td>@property.Name</td>
+                        <td>@property.Address</td>
+                        <td>@property.Price</td>
+                        <td>@property.BiddingStartTime?.ToString("g")</td>
+                        <td>@property.BiddingEndTime?.ToString("g")</td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@property.Id" class="btn btn-info btn-sm">Details</a>
+                            @if (property.BiddingStartTime <= DateTime.Now && property.BiddingEndTime >= DateTime.Now)
+                            {
+                                <form asp-action="PlaceBid" asp-controller="Bids" method="post" class="d-inline">
+                                    <input type="hidden" name="propertyId" value="@property.Id" />
+                                    <input type="number" name="amount" class="form-control d-inline" style="width: 100px;"
+                                        placeholder="Enter Bid Amount" required />
+                                    <button type="submit" class="btn btn-primary btn-sm">Bid</button>
+                                </form>
+                            }
+                            else if (property.BiddingEndTime < DateTime.Now)
+                            {
+                                <span class="badge bg-danger">Bidding Closed</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">Bidding Not Started</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+else
+{
+    <p class="text-warning">You must be logged in as a buyer or seller to access this page.</p>
 }
