@@ -12,8 +12,8 @@ using RealState.Data;
 namespace RealState.Migrations
 {
     [DbContext(typeof(RealStateContext))]
-    [Migration("20250124173941_newSetup")]
-    partial class newSetup
+    [Migration("20250124183950_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

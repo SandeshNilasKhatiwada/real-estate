@@ -70,40 +70,51 @@ namespace RealState.Controllers
             return RedirectToAction("Details", "Properties", new { id = propertyId });
         }
 
-        // Update bid
         [HttpPost]
         [Authorize(Roles = "Buyer")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateBid(int bidId, decimal newAmount)
         {
-            var user = await _userManager.GetUserAsync(User);
-            var bid = await _context.Bids
-                .Include(b => b.Property)
-                .FirstOrDefaultAsync(b => b.Id == bidId && b.BidderId == user.Id && b.IsActive);
-
-            if (bid == null)
+            try
             {
-                TempData["Error"] = "You can only update your active bids.";
-                return RedirectToAction("Details", "Properties", new { id = bid?.PropertyId });
-            }
+                // Get the currently logged-in user
+                var user = await _userManager.GetUserAsync(User);
 
-            var property = bid.Property;
+                // Retrieve the bid with the provided bidId and ensure the user owns the bid
+                var bid = await _context.Bids
+                    .Include(b => b.Property) // Include the related property
+                    .FirstOrDefaultAsync(b => b.Id == bidId && b.BidderId == user.Id && b.IsActive);
 
-            // Check if bidding is still open
-            if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
-            {
-                TempData["Error"] = "Bidding is closed for this property.";
+                if (bid == null)
+                {
+                    TempData["Error"] = "You can only update your active bids.";
+                    return RedirectToAction("Details", "Properties", new { id = bid?.PropertyId });
+                }
+
+                // Ensure the bidding period is still open
+                var property = bid.Property;
+                if (property.BiddingStartTime > DateTime.Now || property.BiddingEndTime < DateTime.Now)
+                {
+                    TempData["Error"] = "Bidding is closed for this property.";
+                    return RedirectToAction("Details", "Properties", new { id = property.Id });
+                }
+
+                // Update the bid amount and timestamp
+                bid.Amount = newAmount;
+                bid.TimePlaced = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Your bid has been successfully updated.";
                 return RedirectToAction("Details", "Properties", new { id = property.Id });
             }
-
-            // Update bid details
-            bid.Amount = newAmount;
-            bid.TimePlaced = DateTime.Now;
-
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("Details", "Properties", new { id = property.Id });
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in UpdateBid: {ex.Message}");
+                TempData["Error"] = "An error occurred while updating the bid.";
+                return RedirectToAction("Details", "Properties", new { id = bidId });
+            }
         }
+
 
         // Cancel bid
         [HttpPost]
